@@ -3,7 +3,8 @@ Class {
 	#superclass : #TestCase,
 	#instVars : [
 		'interpreter',
-		'receiver'
+		'receiver',
+		'collaborator'
 	],
 	#category : #'Champollion-Tests'
 }
@@ -25,11 +26,34 @@ CHInterpreterTest >> interpreter [
 	^ interpreter
 ]
 
+{ #category : #tests }
+CHInterpreterTest >> peanoToInt: aPeanoNumber [
+	"Helper method to transform a Peano number to a normal Pharo integer"
+	^ aPeanoNumber 
+		ifEmpty: [ 0 ]
+		ifNotEmpty: [ 1 + (self peanoToInt: aPeanoNumber first)]
+]
+
 { #category : #running }
 CHInterpreterTest >> setUp [
 	super setUp.
 	receiver := CHInterpretable new.
+	collaborator := CHInterpretable new.
+	receiver collaborator: collaborator.
 	interpreter := CHInterpreter new.
+	
+]
+
+{ #category : #tests }
+CHInterpreterTest >> testArgumentAccess [ 
+	
+	receiver x: 200.
+	collaborator x: 300.
+	
+	self executeSelector: #changeCollaboratorWithArgument.
+	
+	self assert: receiver x equals: 200.
+	self assert: collaborator x equals: 500.
 ]
 
 { #category : #tests }
@@ -38,6 +62,39 @@ CHInterpreterTest >> testAssignmentReturnsAssignedValue [
 	self 
 		assert: (self executeSelector: #store100IntoX)
 		equals: 100
+]
+
+{ #category : #tests }
+CHInterpreterTest >> testBalancingStack [ 
+	self 
+		assert: (self executeSelector: #setXAndMessage)
+		equals: 1000
+]
+
+{ #category : #tests }
+CHInterpreterTest >> testEvaluationOrder [ 
+	| argumentEvaluationOrder |
+	argumentEvaluationOrder := self executeSelector: #returnEvaluationOrder.
+
+	self
+		assert: (self peanoToInt: receiver evaluationOrder)
+		equals: 0.
+
+	self 
+		assert: (argumentEvaluationOrder collect: [:peano | self peanoToInt: peano])
+		equals: #(1 2 3).
+]
+
+{ #category : #tests }
+CHInterpreterTest >> testInstanceVariableStoreInMethodActivationDoesNotChangeSender [
+	receiver x: 200.
+   collaborator x: 300.
+	
+	"changeCollaboratorX will replace collaborator's x but not the receiver's"
+	self executeSelector: #changeCollaboratorX.
+	
+	self assert: receiver x equals: 200.
+	self assert: collaborator x equals: 100.
 ]
 
 { #category : #tests }
@@ -106,6 +163,14 @@ CHInterpreterTest >> testReturnSuper [
 	self 
 		assert: (self executeSelector: #returnSuper)
 		equals: receiver
+]
+
+{ #category : #tests }
+CHInterpreterTest >> testSelfSend [ 
+	receiver x: 100.
+	self 
+		assert: (self executeSelector: #sendMessageReturnX)
+		equals: 100
 ]
 
 { #category : #tests }
